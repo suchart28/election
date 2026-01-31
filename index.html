@@ -7,46 +7,53 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background-color: #020617; }
-        #map { height: 100vh; background: #020617; }
-        /* ปรับแผนที่ฐานให้เป็นโทนเข้ม */
+        body { background-color: #020617; font-family: 'Sarabun', sans-serif; overflow: hidden; }
+        #map { height: 100vh; width: 100%; background: #020617; }
         .leaflet-tile-container { filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); }
         
-        /* สไตล์ของชื่อเขตที่ปรากฏบนแผนที่ */
-        .district-label {
-            background: rgba(0, 0, 0, 0.6);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            color: #fff;
-            font-weight: bold;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 12px;
-            white-space: nowrap;
+        /* สไตล์หมุดที่ว่าการอำเภอ */
+        .district-office-icon {
+            background: #3b82f6;
+            border: 2px solid #fff;
+            border-radius: 50%;
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.8);
         }
-        .leaflet-popup-content-wrapper { background: #1e293b; color: white; border-radius: 12px; }
+
+        /* Search Box UI */
+        .search-container { position: absolute; top: 120px; left: 20px; z-index: 1000; width: 300px; }
+        .search-results { max-height: 250px; overflow-y: auto; display: none; background: rgba(15, 23, 42, 0.95); border: 1px solid #334155; margin-top: 5px; border-radius: 12px; }
+
+        /* Ticker Style */
+        .ticker-wrapper { position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(15, 23, 42, 0.95); border-top: 1px solid #1e293b; z-index: 2000; height: 40px; overflow: hidden; display: flex; align-items: center; }
+        .ticker-label { background: #ef4444; color: white; padding: 0 15px; height: 100%; display: flex; align-items: center; font-weight: bold; z-index: 2001; }
+        .ticker-content { display: flex; white-space: nowrap; animation: ticker 50s linear infinite; }
+        @keyframes ticker { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
     </style>
 </head>
 <body>
-    <div class="absolute top-5 left-5 z-[1000] space-y-3">
+
+    <div class="absolute top-5 left-5 z-[1000]">
         <div class="bg-slate-900/90 backdrop-blur-md p-4 rounded-2xl border border-slate-700 shadow-2xl">
             <h1 class="text-xl font-bold text-white flex items-center">
-                <span class="w-3 h-3 bg-red-500 rounded-full animate-ping mr-2"></span>
+                <span class="w-2 h-2 bg-blue-500 rounded-full mr-2 animate-pulse"></span>
                 ระบบติดตามสถานการณ์เลือกตั้ง
             </h1>
-            <p class="text-slate-400 text-[10px] uppercase tracking-widest mt-1">จังหวัดขอนแก่น - Real-time Dashboard</p>
-        </div>
-
-        <div class="bg-slate-900/90 backdrop-blur-md p-4 rounded-2xl border border-slate-700 shadow-2xl w-64">
-            <h2 class="text-blue-400 text-sm font-bold mb-3 flex justify-between">
-                จำนวนรายงานแยกเขต 
-                <span id="total-reports" class="text-white bg-blue-600 px-2 rounded-full text-xs">0</span>
-            </h2>
-            <div id="stats-list" class="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-                </div>
+            <p class="text-slate-400 text-[10px] tracking-widest mt-1">ขอนแก่น: พิกัดที่ว่าการอำเภอ 26 แห่ง</p>
         </div>
     </div>
 
+    <div class="search-container">
+        <input type="text" id="searchInput" placeholder="🔍 ค้นหาอำเภอในขอนแก่น..." 
+            class="w-full bg-slate-900/90 text-white p-3 rounded-xl border border-slate-700 focus:outline-none focus:ring-2 ring-blue-500 shadow-xl">
+        <div id="searchResults" class="search-results shadow-2xl text-sm"></div>
+    </div>
+
     <div id="map"></div>
+
+    <div class="ticker-wrapper">
+        <div class="ticker-label">รายงานล่าสุด</div>
+        <div id="ticker-move" class="ticker-content text-slate-400 text-sm"></div>
+    </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script type="module">
@@ -64,82 +71,90 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        // ตั้งค่าแผนที่
         const map = L.map('map', { zoomControl: false }).setView([16.4419, 102.8359], 9);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-        // 1. โหลด GeoJSON และจัดการเรื่องสี/ชื่อเขต
+        // --- ข้อมูลพิกัดที่ว่าการอำเภอ 26 แห่งในขอนแก่น ---
+        const offices = [
+            { name: "ที่ว่าการอำเภอเมืองขอนแก่น", lat: 16.4425, lng: 102.8272 },
+            { name: "ที่ว่าการอำเภอบ้านฝาง", lat: 16.4528, lng: 102.6369 },
+            { name: "ที่ว่าการอำเภอพระยืน", lat: 16.3264, lng: 102.6481 },
+            { name: "ที่ว่าการอำเภอหนองเรือ", lat: 16.4883, lng: 102.4339 },
+            { name: "ที่ว่าการอำเภอชุมแพ", lat: 16.5447, lng: 102.0650 },
+            { name: "ที่ว่าการอำเภอสีชมพู", lat: 16.7844, lng: 102.1628 },
+            { name: "ที่ว่าการอำเภอน้ำพอง", lat: 16.7022, lng: 102.8547 },
+            { name: "ที่ว่าการอำเภออุบลรัตน์", lat: 16.7589, lng: 102.6322 },
+            { name: "ที่ว่าการอำเภอกระนวน", lat: 16.7078, lng: 103.0825 },
+            { name: "ที่ว่าการอำเภอบ้านไผ่", lat: 16.0603, lng: 102.7306 },
+            { name: "ที่ว่าการอำเภอเปือยน้อย", lat: 15.8719, lng: 102.9039 },
+            { name: "ที่ว่าการอำเภอพล", lat: 15.8164, lng: 102.5925 },
+            { name: "ที่ว่าการอำเภอแวงน้อย", lat: 15.7917, lng: 102.4172 },
+            { name: "ที่ว่าการอำเภอแวงใหญ่", lat: 15.9525, lng: 102.5050 },
+            { name: "ที่ว่าการอำเภอชลบถ", lat: 16.0864, lng: 102.5206 },
+            { name: "ที่ว่าการอำเภอมัญจาคีรี", lat: 16.1261, lng: 102.5358 },
+            { name: "ที่ว่าการอำเภอหนองสองห้อง", lat: 15.7336, lng: 102.7933 },
+            { name: "ที่ว่าการอำเภอภูเวียง", lat: 16.6517, lng: 102.4386 },
+            { name: "ที่ว่าการอำเภอภูผาม่าน", lat: 16.6111, lng: 101.9058 },
+            { name: "ที่ว่าการอำเภอซำสูง", lat: 16.6067, lng: 103.0514 },
+            { name: "ที่ว่าการอำเภอโคกโพธิ์ไชย", lat: 16.0803, lng: 102.3858 },
+            { name: "ที่ว่าการอำเภอหนองนาคำ", lat: 16.8058, lng: 102.3439 },
+            { name: "ที่ว่าการอำเภอบ้านแฮด", lat: 16.2056, lng: 102.7483 },
+            { name: "ที่ว่าการอำเภอโนนศิลา", lat: 15.9717, lng: 102.6681 },
+            { name: "ที่ว่าการอำเภอเขาสวนกวาง", lat: 16.8583, lng: 102.8631 },
+            { name: "ที่ว่าการอำเภอเวียงเก่า", lat: 16.6711, lng: 102.3086 }
+        ];
+
+        const officeMarkers = {};
+        offices.forEach(o => {
+            const m = L.circleMarker([o.lat, o.lng], {
+                radius: 8, fillColor: "#3b82f6", color: "#fff", weight: 2, fillOpacity: 0.8
+            }).bindPopup(`<b>${o.name}</b>`).addTo(map);
+            officeMarkers[o.name] = m;
+        });
+
+        // --- ระบบค้นหาอำเภอ ---
+        const searchInput = document.getElementById('searchInput');
+        const searchResults = document.getElementById('searchResults');
+
+        searchInput.oninput = () => {
+            const query = searchInput.value;
+            searchResults.innerHTML = '';
+            if (!query) { searchResults.style.display = 'none'; return; }
+
+            const filtered = offices.filter(o => o.name.includes(query));
+            if (filtered.length > 0) {
+                searchResults.style.display = 'block';
+                filtered.forEach(o => {
+                    const div = document.createElement('div');
+                    div.className = "p-3 hover:bg-slate-800 cursor-pointer border-b border-slate-800 text-slate-300";
+                    div.innerText = o.name;
+                    div.onclick = () => {
+                        map.setView([o.lat, o.lng], 14);
+                        officeMarkers[o.name].openPopup();
+                        searchResults.style.display = 'none';
+                        searchInput.value = o.name;
+                    };
+                    searchResults.appendChild(div);
+                });
+            } else { searchResults.style.display = 'none'; }
+        };
+
+        // โหลด GeoJSON ขอบเขตเขตเลือกตั้ง (คงเดิม)
         fetch('khon kaen.geojson').then(res => res.json()).then(data => {
             L.geoJSON(data, {
-                style: function(feature) {
-                    return {
-                        fillColor: feature.properties.fill || "#3b82f6", // ใช้สีจากไฟล์
-                        fillOpacity: 0.3,
-                        color: "#ffffff", // สีเส้นขอบ
-                        weight: 1.5,
-                        opacity: 0.5
-                    };
-                },
-                onEachFeature: function(feature, layer) {
-                    const districtID = feature.properties.id;
-                    if (districtID !== undefined) {
-                        // แสดงเลขเขตค้างไว้บนแผนที่
-                        layer.bindTooltip("เขต " + districtID, {
-                            permanent: true,
-                            direction: "center",
-                            className: "district-label"
-                        }).openTooltip();
-                        
-                        // เมื่อคลิกที่พื้นที่ให้ขึ้นข้อมูล
-                        layer.bindPopup("<b class='text-blue-400 text-lg'>เขตเลือกตั้งที่ " + districtID + "</b>");
-                    }
-                }
+                style: (f) => ({ 
+                    fillColor: f.properties.fill || "#1e293b", 
+                    fillOpacity: 0.15, color: "#334155", weight: 1 
+                })
             }).addTo(map);
         });
 
-        // 2. จัดการข้อมูลรายงานพิกัดจาก Firebase
-        const markers = {};
-        const reportsRef = ref(db, 'election_reports');
-
-        onValue(reportsRef, (snapshot) => {
-            // ล้างจุดเดิม
-            Object.values(markers).forEach(m => map.removeLayer(m));
-            
-            const data = snapshot.val() || {};
-            const stats = {};
-            let total = 0;
-
-            Object.entries(data).forEach(([key, val]) => {
-                total++;
-                stats[val.district] = (stats[val.district] || 0) + 1;
-
-                const markerIcon = L.divIcon({
-                    html: `<div class="w-3 h-3 bg-white rounded-full border-2 border-blue-500 shadow-[0_0_10px_#fff]"></div>`,
-                    className: ''
-                });
-
-                const m = L.marker([val.lat, val.lng], { icon: markerIcon }).addTo(map)
-                    .bindPopup(`
-                        <div class='p-1'>
-                            <b class='text-blue-400'>รายงานจากเขต ${val.district}</b><br>
-                            <p class='text-sm mt-1 text-slate-200'>${val.message}</p>
-                            <p class='text-[10px] text-slate-500 mt-2'>${new Date(val.timestamp).toLocaleString('th-TH')}</p>
-                        </div>
-                    `);
-                markers[key] = m;
-            });
-
-            // อัปเดตสถิติในกล่องด้านซ้าย
-            document.getElementById('total-reports').innerText = total;
-            const list = document.getElementById('stats-list');
-            list.innerHTML = '';
-            Object.keys(stats).sort((a,b) => a-b).forEach(d => {
-                list.innerHTML += `
-                    <div class="flex justify-between items-center text-xs bg-slate-800 p-2 rounded-lg border border-slate-700">
-                        <span class="text-slate-300 font-bold font-sans italic">เขต ${d}</span>
-                        <span class="text-blue-400 font-bold">${stats[d]} รายงาน</span>
-                    </div>`;
-            });
+        // Ticker Reports (คงเดิม)
+        onValue(ref(db, 'election_reports'), (snapshot) => {
+            const reports = Object.values(snapshot.val() || {}).reverse().slice(0, 10);
+            document.getElementById('ticker-move').innerHTML = reports.map(r => `
+                <span class="px-10"><b>เขต ${r.district}:</b> ${r.message}</span>
+            `).join('');
         });
     </script>
 </body>
