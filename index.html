@@ -3,12 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบรายงานเลือกตั้งขอนแก่น</title>
+    <title>Dashboard เลือกตั้งขอนแก่น - Dark Mode</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #0f172a; }
+        #map { height: 100vh; background: #1e293b; }
+        /* ปรับแผนที่ให้โทนเข้ม */
+        .leaflet-tile-container { filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); }
+        .leaflet-popup-content-wrapper { background: #1e293b; color: white; border: 1px solid #334155; }
+        .leaflet-popup-tip { background: #1e293b; }
+    </style>
 </head>
 <body>
-    <div id="map" style="height: 100vh; width: 100%;"></div>
+    <div class="absolute top-5 left-5 z-[1000] bg-slate-900/80 backdrop-blur-md p-4 rounded-2xl border border-slate-700 shadow-2xl">
+        <h1 class="text-xl font-bold text-white">Khon Kaen Election <span class="text-blue-500">Live</span></h1>
+        <p class="text-slate-400 text-[10px] uppercase tracking-widest">Real-time Reporting System</p>
+    </div>
+
+    <div id="map"></div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script type="module">
@@ -26,18 +39,27 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        const map = L.map('map').setView([16.4419, 102.8359], 9);
+        const map = L.map('map', { zoomControl: false }).setView([16.4419, 102.8359], 9);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
         fetch('khon kaen.geojson').then(res => res.json()).then(data => {
-            L.geoJSON(data, { style: { color: "#1e40af", weight: 2, fillOpacity: 0.05 } }).addTo(map);
+            L.geoJSON(data, { 
+                style: { color: "#3b82f6", weight: 1.5, fillOpacity: 0.1, fillColor: "#1d4ed8" } 
+            }).addTo(map);
         });
 
         const reportsRef = ref(db, 'election_reports');
         onChildAdded(reportsRef, (snapshot) => {
             const val = snapshot.val();
-            L.marker([val.lat, val.lng]).addTo(map)
-                .bindPopup(`<b>เขต ${val.district}</b><br>${val.message}<br><small>${new Date(val.timestamp).toLocaleString('th-TH')}</small>`);
+            const markerIcon = L.divIcon({
+                className: 'custom-div-icon',
+                html: "<div style='background-color:#3b82f6; width:12px; height:12px; border-radius:50%; border:2px solid white; box-shadow: 0 0 10px #3b82f6;'></div>",
+                iconSize: [12, 12],
+                iconAnchor: [6, 6]
+            });
+
+            L.marker([val.lat, val.lng], { icon: markerIcon }).addTo(map)
+                .bindPopup(`<div class="p-1"><b class="text-blue-400">เขต ${val.district}</b><br><span class="text-sm">${val.message}</span></div>`);
         });
     </script>
 </body>
