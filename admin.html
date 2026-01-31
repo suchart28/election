@@ -3,29 +3,50 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin - จัดการรายงาน</title>
+    <title>Admin - ระบบจัดการรายงาน</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #0f172a; color: #f8fafc; }
+        .admin-container { display: none; } /* ซ่อนไว้จนกว่าจะล็อคอิน */
+    </style>
 </head>
-<body class="bg-slate-900 text-slate-200 p-6">
-    <div class="max-w-4xl mx-auto">
-        <div class="flex justify-between items-center mb-6">
-            <h1 class="text-2xl font-bold text-white">จัดการข้อมูลรายงาน</h1>
-            <a href="index.html" class="text-sm text-blue-400 hover:underline">กลับหน้าแผนที่</a>
+<body class="p-6">
+    <div id="login-gate" class="fixed inset-0 bg-slate-900 z-[2000] flex items-center justify-center p-4">
+        <div class="bg-slate-800 p-8 rounded-3xl shadow-2xl border border-slate-700 w-full max-w-sm text-center">
+            <h2 class="text-2xl font-bold mb-6 text-white">ผู้ดูแลระบบ</h2>
+            <input type="password" id="pass-input" class="w-full bg-slate-900 border border-slate-700 p-4 rounded-xl mb-4 text-center text-xl tracking-[0.5em] outline-none focus:border-blue-500" placeholder="รหัสผ่าน">
+            <button onclick="checkPass()" class="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl font-bold transition">เข้าสู่ระบบ</button>
+            <p id="error-msg" class="text-red-500 text-sm mt-4 hidden">รหัสผ่านไม่ถูกต้อง!</p>
+        </div>
+    </div>
+
+    <div id="admin-main" class="admin-container max-w-5xl mx-auto">
+        <div class="flex justify-between items-center mb-8">
+            <div>
+                <h1 class="text-3xl font-bold text-white">จัดการข้อมูลรายงาน</h1>
+                <p class="text-slate-400 text-sm">ตรวจสอบและลบข้อมูลที่ไม่เหมาะสม</p>
+            </div>
+            <div class="flex gap-3">
+                <a href="index.html" class="bg-slate-800 hover:bg-slate-700 px-4 py-2 rounded-xl text-sm transition">ไปหน้าแผนที่</a>
+                <button onclick="location.reload()" class="bg-red-900/30 text-red-400 px-4 py-2 rounded-xl text-sm border border-red-900/50">ออกจากระบบ</button>
+            </div>
         </div>
 
-        <div class="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden">
-            <table class="w-full text-left border-collapse">
-                <thead class="bg-slate-700 text-slate-300 text-sm">
-                    <tr>
-                        <th class="p-4">เวลา</th>
-                        <th class="p-4">เขต</th>
-                        <th class="p-4">ข้อความ</th>
-                        <th class="p-4 text-center">จัดการ</th>
-                    </tr>
-                </thead>
-                <tbody id="admin-list">
-                    </tbody>
-            </table>
+        <div class="bg-slate-800 rounded-3xl border border-slate-700 shadow-xl overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-slate-700/50 text-slate-300">
+                        <tr>
+                            <th class="p-4 text-sm font-semibold uppercase tracking-wider">วัน-เวลา</th>
+                            <th class="p-4 text-sm font-semibold uppercase tracking-wider">เขต</th>
+                            <th class="p-4 text-sm font-semibold uppercase tracking-wider">ข้อความ/สถานการณ์</th>
+                            <th class="p-4 text-sm font-semibold uppercase tracking-wider text-center">จัดการ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-list" class="divide-y divide-slate-700">
+                        </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
@@ -43,46 +64,65 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
-        const reportsRef = ref(db, 'election_reports');
 
-        onValue(reportsRef, (snapshot) => {
-            const list = document.getElementById('admin-list');
-            list.innerHTML = '';
-            const data = snapshot.val();
-            
-            if (!data) {
-                list.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-slate-500">ไม่มีข้อมูลรายงาน</td></tr>';
-                return;
+        // ฟังก์ชันตรวจสอบรหัสผ่าน
+        window.checkPass = function() {
+            const input = document.getElementById('pass-input').value;
+            const error = document.getElementById('error-msg');
+            const gate = document.getElementById('login-gate');
+            const main = document.getElementById('admin-main');
+
+            if (input === "987654321") {
+                gate.style.display = "none";
+                main.style.display = "block";
+                loadAdminData(); // เริ่มดึงข้อมูลเมื่อรหัสผ่านถูก
+            } else {
+                error.classList.remove('hidden');
+                document.getElementById('pass-input').value = "";
             }
+        };
 
-            Object.entries(data).reverse().forEach(([id, val]) => {
-                const tr = document.createElement('tr');
-                tr.className = "border-t border-slate-700 hover:bg-slate-700/50 transition";
-                tr.innerHTML = `
-                    <td class="p-4 text-xs">${new Date(val.timestamp).toLocaleString('th-TH')}</td>
-                    <td class="p-4 font-bold text-blue-400">เขต ${val.district}</td>
-                    <td class="p-4 text-sm">${val.message}</td>
-                    <td class="p-4 text-center">
-                        <button class="del-btn bg-red-600/20 text-red-400 border border-red-600/50 px-3 py-1 rounded-lg hover:bg-red-600 hover:text-white transition" data-id="${id}">
-                            ลบ
-                        </button>
-                    </td>
-                `;
-                list.appendChild(tr);
-            });
+        function loadAdminData() {
+            const reportsRef = ref(db, 'election_reports');
+            onValue(reportsRef, (snapshot) => {
+                const list = document.getElementById('admin-list');
+                list.innerHTML = '';
+                const data = snapshot.val();
+                
+                if (!data) {
+                    list.innerHTML = '<tr><td colspan="4" class="p-10 text-center text-slate-500">ยังไม่มีรายงานส่งเข้ามา</td></tr>';
+                    return;
+                }
 
-            // ตั้งค่าปุ่มลบ
-            document.querySelectorAll('.del-btn').forEach(btn => {
-                btn.onclick = function() {
-                    const reportId = this.getAttribute('data-id');
-                    if (confirm('ยืนยันที่จะลบรายงานนี้หรือไม่?')) {
-                        remove(ref(db, `election_reports/${reportId}`))
-                            .then(() => alert('ลบเรียบร้อยแล้ว'))
-                            .catch(err => alert('ผิดพลาด: ' + err.message));
-                    }
-                };
+                Object.entries(data).reverse().forEach(([id, val]) => {
+                    const tr = document.createElement('tr');
+                    tr.className = "hover:bg-slate-700/30 transition";
+                    tr.innerHTML = `
+                        <td class="p-4 text-xs text-slate-400">${new Date(val.timestamp).toLocaleString('th-TH')}</td>
+                        <td class="p-4 font-bold text-blue-400">เขต ${val.district}</td>
+                        <td class="p-4 text-sm text-slate-200">${val.message}</td>
+                        <td class="p-4 text-center">
+                            <button class="del-btn bg-red-600/10 text-red-500 border border-red-600/30 px-4 py-2 rounded-xl hover:bg-red-600 hover:text-white transition" data-id="${id}">
+                                ลบรายงาน
+                            </button>
+                        </td>
+                    `;
+                    list.appendChild(tr);
+                });
+
+                // ตั้งค่าปุ่มลบ
+                document.querySelectorAll('.del-btn').forEach(btn => {
+                    btn.onclick = function() {
+                        const reportId = this.getAttribute('data-id');
+                        if (confirm('คุณต้องการลบข้อมูลชุดนี้ใช่หรือไม่?')) {
+                            remove(ref(db, `election_reports/${reportId}`))
+                                .then(() => alert('ลบข้อมูลสำเร็จ'))
+                                .catch(err => alert('เกิดข้อผิดพลาด: ' + err.message));
+                        }
+                    };
+                });
             });
-        });
+        }
     </script>
 </body>
 </html>
