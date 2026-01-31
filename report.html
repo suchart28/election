@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ส่งรายงานพื้นที่ - ขอนแก่น</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-5">
+    <div class="max-w-md mx-auto bg-white p-6 rounded-xl shadow-lg">
+        <h1 class="text-xl font-bold mb-4 text-blue-600">ส่งรายงานเข้าสู่ระบบแผนที่</h1>
+        
+        <label class="block mb-2 font-semibold">เขตเลือกตั้งที่</label>
+        <input type="number" id="district" class="w-full border p-2 rounded mb-4" placeholder="เช่น 1">
+
+        <label class="block mb-2 font-semibold">ข้อความรายงาน</label>
+        <textarea id="message" class="w-full border p-2 rounded mb-4" rows="3" placeholder="ระบุเหตุการณ์หรือผลคะแนน"></textarea>
+
+        <button id="sendBtn" class="w-full bg-blue-500 text-white p-3 rounded font-bold hover:bg-blue-600 transition">
+            ส่งรายงานพร้อมพิกัดปัจจุบัน (GPS)
+        </button>
+        
+        <p id="status" class="mt-4 text-sm text-center text-gray-500"></p>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+        import { getDatabase, ref, push, set } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyC1ezNueFBjkbToDo-kGo39j49xy7lONfw",
+            authDomain: "studio-a33fe.firebaseapp.com",
+            projectId: "studio-a33fe",
+            databaseURL: "https://studio-a33fe-default-rtdb.firebaseio.com",
+            appId: "1:753539109404:web:a5e3c94d8dab8bbde645d9"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        document.getElementById('sendBtn').onclick = function() {
+            const dist = document.getElementById('district').value;
+            const msg = document.getElementById('message').value;
+            const status = document.getElementById('status');
+
+            if (!dist || !msg) return alert("กรุณาระบุเขตและข้อความ");
+
+            status.innerText = "กำลังเข้าถึง GPS...";
+
+            navigator.geolocation.getCurrentPosition((pos) => {
+                const newReportRef = push(ref(db, 'election_reports'));
+                set(newReportRef, {
+                    district: dist,
+                    message: msg,
+                    lat: pos.coords.latitude,
+                    lng: pos.coords.longitude,
+                    timestamp: Date.now()
+                }).then(() => {
+                    status.innerText = "✅ ส่งข้อมูลสำเร็จ!";
+                    document.getElementById('message').value = "";
+                });
+            }, (err) => {
+                status.innerText = "❌ เกิดข้อผิดพลาด: โปรดอนุญาตการเข้าถึง GPS";
+            });
+        };
+    </script>
+</body>
+</html>
