@@ -3,85 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบรายงานผลการเลือกตั้งขอนแก่น 11 เขต</title>
+    <title>ระบบรายงานเลือกตั้งขอนแก่น</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        #map { height: 100vh; width: 100%; }
-        .leaflet-popup-content-wrapper { border-radius: 8px; padding: 5px; }
-    </style>
 </head>
 <body>
-    <div class="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] w-11/12 max-w-lg">
-        <div class="bg-white/90 backdrop-blur-sm p-4 rounded-2xl shadow-2xl border border-blue-100 text-center">
-            <h1 class="text-xl font-bold text-blue-900">📍 รายงานการเลือกตั้ง จ.ขอนแก่น</h1>
-            <p class="text-xs text-gray-600 mt-1">แสดงผลแบบ Real-time จากพิกัดจริงในพื้นที่</p>
-        </div>
-    </div>
-
-    <div id="map"></div>
+    <div id="map" style="height: 100vh; width: 100%;"></div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
         import { getDatabase, ref, onChildAdded } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
-        // Firebase Config ของคุณ
         const firebaseConfig = {
             apiKey: "AIzaSyC1ezNueFBjkbToDo-kGo39j49xy7lONfw",
             authDomain: "studio-a33fe.firebaseapp.com",
             projectId: "studio-a33fe",
-            databaseURL: "https://studio-a33fe-default-rtdb.firebaseio.com",
-            storageBucket: "studio-a33fe.firebasestorage.app",
-            messagingSenderId: "753539109404",
+            databaseURL: "https://studio-a33fe-default-rtdb.asia-southeast1.firebasedatabase.app/",
             appId: "1:753539109404:web:a5e3c94d8dab8bbde645d9"
         };
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        // ตั้งค่าแผนที่ (Zoom ไปที่ขอนแก่น)
         const map = L.map('map').setView([16.4419, 102.8359], 9);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
-        }).addTo(map);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-        // โหลด GeoJSON ขอบเขตจังหวัด/เขต
-        fetch('khon kaen.geojson')
-            .then(res => res.json())
-            .then(data => {
-                L.geoJSON(data, {
-                    style: {
-                        color: "#1e40af",
-                        weight: 2,
-                        fillColor: "#3b82f6",
-                        fillOpacity: 0.05
-                    },
-                    onEachFeature: (feature, layer) => {
-                        if (feature.properties && feature.properties.name) {
-                            layer.bindTooltip("เขตพื้นที่: " + feature.properties.name);
-                        }
-                    }
-                }).addTo(map);
-            });
+        fetch('khon kaen.geojson').then(res => res.json()).then(data => {
+            L.geoJSON(data, { style: { color: "#1e40af", weight: 2, fillOpacity: 0.05 } }).addTo(map);
+        });
 
-        // ดึงข้อมูลรายงานจาก Firebase
         const reportsRef = ref(db, 'election_reports');
         onChildAdded(reportsRef, (snapshot) => {
             const val = snapshot.val();
-            const marker = L.marker([val.lat, val.lng]).addTo(map);
-            
-            const popupContent = `
-                <div class="p-2 font-sans">
-                    <strong class="text-blue-700 text-lg">เขตเลือกตั้งที่ ${val.district}</strong>
-                    <div class="my-2 py-2 border-y border-gray-100">${val.message}</div>
-                    <div class="text-[10px] text-gray-400 text-right">
-                        ${new Date(val.timestamp).toLocaleString('th-TH')}
-                    </div>
-                </div>
-            `;
-            marker.bindPopup(popupContent);
+            L.marker([val.lat, val.lng]).addTo(map)
+                .bindPopup(`<b>เขต ${val.district}</b><br>${val.message}<br><small>${new Date(val.timestamp).toLocaleString('th-TH')}</small>`);
         });
     </script>
 </body>
