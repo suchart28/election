@@ -3,35 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ส่งรายงานด่วน - เลือกตั้งขอนแก่น</title>
+    <title>ส่งรายงาน - ขอนแก่น</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-slate-50 min-h-screen flex items-center justify-center p-4">
-    <div class="bg-white w-full max-w-md rounded-3xl shadow-xl overflow-hidden border border-gray-100">
-        <div class="bg-blue-600 p-6 text-white">
-            <h1 class="text-2xl font-bold text-center">ส่งรายงานจากพื้นที่</h1>
-            <p class="text-blue-100 text-center text-sm mt-1">ข้อมูลจะถูกส่งไปยังแผนที่ส่วนกลางทันที</p>
-        </div>
+<body class="bg-slate-50 p-4">
+    <div class="max-w-md mx-auto bg-white rounded-2xl shadow-lg p-6 mt-10">
+        <h1 class="text-xl font-bold mb-4">ส่งรายงานพื้นที่</h1>
+        <div id="status" class="mb-4 p-2 bg-yellow-100 text-xs rounded text-center">รอพิกัด GPS...</div>
         
-        <div class="p-6 space-y-4">
-            <div id="gps-status" class="bg-yellow-50 border border-yellow-200 p-3 rounded-xl text-xs text-yellow-700 flex items-center justify-center">
-                <span class="animate-pulse mr-2">📍</span> กำลังค้นหาพิกัด GPS...
-            </div>
-
-            <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-1">เขตเลือกตั้งที่</label>
-                <input type="number" id="district" class="w-full border-2 border-gray-100 p-3 rounded-xl focus:border-blue-500 outline-none transition" placeholder="ระบุเลขเขต (1-11)">
-            </div>
-
-            <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-1">ข้อความรายงาน / ผลคะแนน</label>
-                <textarea id="message" class="w-full border-2 border-gray-100 p-3 rounded-xl focus:border-blue-500 outline-none transition" rows="4" placeholder="ระบุสถานการณ์หรือผลการนับคะแนน..."></textarea>
-            </div>
-
-            <button id="sendBtn" disabled class="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-blue-200 active:scale-95 transition disabled:bg-gray-300 disabled:shadow-none">
-                ส่งข้อมูลเข้าสู่ระบบ
-            </button>
-        </div>
+        <input type="number" id="district" class="w-full border p-2 rounded mb-4" placeholder="เขตเลือกตั้งที่ (1-11)">
+        <textarea id="message" class="w-full border p-2 rounded mb-4" rows="3" placeholder="ข้อความรายงาน..."></textarea>
+        
+        <button id="sendBtn" disabled class="w-full bg-blue-600 text-white p-3 rounded-lg font-bold disabled:bg-gray-300">
+            ส่งรายงาน
+        </button>
     </div>
 
     <script type="module">
@@ -42,65 +27,41 @@
             apiKey: "AIzaSyC1ezNueFBjkbToDo-kGo39j49xy7lONfw",
             authDomain: "studio-a33fe.firebaseapp.com",
             projectId: "studio-a33fe",
-            databaseURL: "https://studio-a33fe-default-rtdb.firebaseio.com",
+            databaseURL: "https://studio-a33fe-default-rtdb.asia-southeast1.firebasedatabase.app/",
             appId: "1:753539109404:web:a5e3c94d8dab8bbde645d9"
         };
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
+        let coords = null;
 
-        let userCoords = null;
+        navigator.geolocation.getCurrentPosition(p => {
+            coords = { lat: p.coords.latitude, lng: p.coords.longitude };
+            document.getElementById('status').innerText = "✅ GPS พร้อมส่ง";
+            document.getElementById('sendBtn').disabled = false;
+        }, e => {
+            document.getElementById('status').innerText = "❌ กรุณาเปิด GPS";
+        });
 
-        // ฟังก์ชันดึงพิกัดทันทีที่เปิดหน้า
-        function startGPSTracking() {
-            const statusDiv = document.getElementById('gps-status');
-            const btn = document.getElementById('sendBtn');
-
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition((pos) => {
-                    userCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-                    statusDiv.innerHTML = `✅ รับพิกัดสำเร็จ: ${userCoords.lat.toFixed(5)}, ${userCoords.lng.toFixed(5)}`;
-                    statusDiv.classList.replace('bg-yellow-50', 'bg-green-50');
-                    statusDiv.classList.replace('text-yellow-700', 'text-green-700');
-                    btn.disabled = false; // เปิดให้กดปุ่มส่งได้
-                }, (err) => {
-                    statusDiv.innerHTML = "❌ โปรดอนุญาตให้เข้าถึง GPS เพื่อส่งรายงาน";
-                    statusDiv.classList.replace('bg-yellow-50', 'bg-red-50');
-                    statusDiv.classList.replace('text-yellow-700', 'text-red-700');
-                }, { enableHighAccuracy: true });
-            }
-        }
-
-        // เริ่มดึงพิกัด
-        startGPSTracking();
-
-        // ฟังก์ชันส่งข้อมูล
         document.getElementById('sendBtn').onclick = async function() {
-            const dist = document.getElementById('district').value;
-            const msg = document.getElementById('message').value;
-            
-            if (!dist || !msg) return alert("กรุณาระบุเขตและข้อความ");
-            
+            const d = document.getElementById('district').value;
+            const m = document.getElementById('message').value;
+            if(!d || !m) return alert("กรอกข้อมูลไม่ครบ");
+
             this.innerText = "กำลังส่ง...";
             this.disabled = true;
 
             try {
-                const newReportRef = push(ref(db, 'election_reports'));
-                await set(newReportRef, {
-                    district: dist,
-                    message: msg,
-                    lat: userCoords.lat,
-                    lng: userCoords.lng,
-                    timestamp: Date.now()
+                await set(push(ref(db, 'election_reports')), {
+                    district: d, message: m, lat: coords.lat, lng: coords.lng, timestamp: Date.now()
                 });
-                alert("ส่งข้อมูลสำเร็จ!");
+                alert("ส่งสำเร็จ!");
                 document.getElementById('message').value = "";
-                this.innerText = "ส่งข้อมูลเข้าสู่ระบบ";
-                this.disabled = false;
-            } catch (e) {
-                alert("เกิดข้อผิดพลาดในการส่งข้อมูล");
-                this.disabled = false;
+            } catch (err) {
+                alert("ผิดพลาด: " + err.message);
             }
+            this.innerText = "ส่งรายงาน";
+            this.disabled = false;
         };
     </script>
 </body>
