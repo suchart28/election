@@ -1,98 +1,32 @@
-<!DOCTYPE html>
-<html lang="th">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ส่งรายงานด่วน - Dark Mode</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body { background-color: #0f172a; color: #f8fafc; }
-    </style>
-</head>
-<body class="min-h-screen flex items-center justify-center p-4">
-    <div class="bg-slate-800 w-full max-w-md rounded-3xl shadow-2xl p-6 border border-slate-700">
-        <h1 class="text-2xl font-bold text-center text-blue-400 mb-2">ส่งรายงานพื้นที่</h1>
-        <p class="text-slate-400 text-center text-xs mb-6 italic">ระบบตรวจสอบพื้นที่รายงานเฉพาะ จ.ขอนแก่น</p>
+<script type="module">
+    // ... (Config เดิม) ...
+
+    // ฟังก์ชันตรวจสอบพิกัดเชิงรัศมี (Center of Khon Kaen ± 1.2 degree)
+    function validateLocation(lat, lng) {
+        const center = { lat: 16.4419, lng: 102.8359 };
+        const diffLat = Math.abs(lat - center.lat);
+        const diffLng = Math.abs(lng - center.lng);
+        // ครอบคลุมพื้นที่ประมาณ 120-150 กม. รอบใจกลางเมืองขอนแก่น
+        return diffLat < 1.1 && diffLng < 1.1;
+    }
+
+    navigator.geolocation.getCurrentPosition(p => {
+        const { latitude, longitude } = p.coords;
+        const statusEl = document.getElementById('status');
         
-        <div id="status" class="mb-4 p-3 rounded-xl text-center text-sm font-medium bg-slate-900 border border-slate-700">
-            <span class="animate-pulse">📡 กำลังตรวจสอบพื้นที่...</span>
-        </div>
-
-        <div class="space-y-4">
-            <div>
-                <label class="block text-xs font-semibold text-slate-400 uppercase ml-1 mb-1">เขตเลือกตั้ง</label>
-                <input type="number" id="district" class="w-full bg-slate-900 border border-slate-700 p-3 rounded-xl focus:border-blue-500 outline-none transition text-white" placeholder="1-11">
-            </div>
-
-            <div>
-                <label class="block text-xs font-semibold text-slate-400 uppercase ml-1 mb-1">สถานการณ์</label>
-                <textarea id="message" class="w-full bg-slate-900 border border-slate-700 p-3 rounded-xl focus:border-blue-500 outline-none transition text-white" rows="3" placeholder="ระบุรายละเอียด..."></textarea>
-            </div>
-
-            <button id="sendBtn" disabled class="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white py-4 rounded-2xl font-bold text-lg transition-all shadow-lg shadow-blue-900/20">
-                ส่งข้อมูลรายงาน
-            </button>
-        </div>
-    </div>
-
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-        import { getDatabase, ref, push, set } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyC1ezNueFBjkbToDo-kGo39j49xy7lONfw",
-            authDomain: "studio-a33fe.firebaseapp.com",
-            projectId: "studio-a33fe",
-            databaseURL: "https://studio-a33fe-default-rtdb.asia-southeast1.firebasedatabase.app/",
-            appId: "1:753539109404:web:a5e3c94d8dab8bbde645d9"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
-        let coords = null;
-
-        // ฟังก์ชันตรวจสอบว่าอยู่ในขอนแก่นหรือไม่
-        function isKhonKaen(lat, lng) {
-            return lat >= 15.6 && lat <= 17.1 && lng >= 101.7 && lng <= 103.3;
+        if (validateLocation(latitude, longitude)) {
+            coords = { lat: latitude, lng: longitude };
+            statusEl.innerHTML = "✅ พิกัดของคุณอยู่ในเขตจังหวัดขอนแก่น";
+            statusEl.className = "mb-4 p-3 rounded-xl text-center text-sm font-medium bg-green-900/20 text-green-400 border border-green-800";
+            document.getElementById('sendBtn').disabled = false;
+        } else {
+            statusEl.innerHTML = "❌ คุณอยู่นอกพื้นที่รายงาน (จ.ขอนแก่น)";
+            statusEl.className = "mb-4 p-3 rounded-xl text-center text-sm font-medium bg-red-900/20 text-red-400 border border-red-800";
+            alert("ระบบล็อคพิกัด: คุณสามารถรายงานได้เฉพาะเมื่ออยู่ในจังหวัดขอนแก่นเท่านั้น");
         }
+    }, (err) => {
+        alert("กรุณาเปิด GPS และอนุญาตการเข้าถึงตำแหน่งที่ตั้ง");
+    }, { enableHighAccuracy: true });
 
-        navigator.geolocation.getCurrentPosition(p => {
-            const lat = p.coords.latitude;
-            const lng = p.coords.longitude;
-            
-            const statusEl = document.getElementById('status');
-            if (isKhonKaen(lat, lng)) {
-                coords = { lat, lng };
-                statusEl.innerHTML = "✅ คุณอยู่ในพื้นที่ขอนแก่น พร้อมส่งข้อมูล";
-                statusEl.classList.add("text-green-400");
-                document.getElementById('sendBtn').disabled = false;
-            } else {
-                statusEl.innerHTML = "⚠️ ปฏิเสธการเข้าถึง: คุณไม่ได้อยู่ในพื้นที่จังหวัดขอนแก่น";
-                statusEl.classList.add("text-red-400", "bg-red-900/20");
-                alert("ขออภัย ระบบอนุญาตให้ส่งรายงานเฉพาะผู้ที่อยู่ในจังหวัดขอนแก่นเท่านั้น");
-            }
-        }, e => {
-            document.getElementById('status').innerText = "❌ กรุณาเปิด GPS และอนุญาตสิทธิ์";
-        }, { enableHighAccuracy: true });
-
-        document.getElementById('sendBtn').onclick = async function() {
-            const d = document.getElementById('district').value;
-            const m = document.getElementById('message').value;
-            if(!d || !m) return alert("กรุณากรอกข้อมูลให้ครบ");
-
-            this.innerText = "กำลังส่ง...";
-            this.disabled = true;
-
-            try {
-                await set(push(ref(db, 'election_reports')), {
-                    district: d, message: m, lat: coords.lat, lng: coords.lng, timestamp: Date.now()
-                });
-                alert("ส่งสำเร็จ!");
-                document.getElementById('message').value = "";
-            } catch (err) { alert("ผิดพลาด: " + err.message); }
-            this.innerText = "ส่งข้อมูลรายงาน";
-            this.disabled = false;
-        };
-    </script>
-</body>
-</html>
+    // ... (ส่วนการส่งข้อมูลเดิม) ...
+</script>
