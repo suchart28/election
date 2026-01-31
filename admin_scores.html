@@ -3,55 +3,133 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin - คะแนนเลือกตั้ง</title>
+    <title>Admin - อัปเดตคะแนนเลือกตั้ง</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #020617; font-family: 'Sarabun', sans-serif; }
+    </style>
 </head>
-<body class="bg-slate-900 text-white p-6">
-    <div id="login" class="max-w-sm mx-auto mt-20 text-center bg-slate-800 p-8 rounded-3xl border border-slate-700">
-        <h1 class="text-xl font-bold mb-4">Admin Login</h1>
-        <input type="password" id="pass" class="w-full bg-slate-950 p-3 rounded-xl mb-4 text-center border border-slate-700" placeholder="รหัสผ่าน">
-        <button onclick="check()" class="w-full bg-blue-600 py-3 rounded-xl">เข้าสู่ระบบ</button>
+<body class="bg-slate-950 text-white min-h-screen p-6">
+
+    <div id="login-section" class="max-w-md mx-auto mt-20 bg-slate-900 p-8 rounded-3xl border border-slate-800 shadow-2xl text-center">
+        <h1 class="text-2xl font-bold mb-6 text-blue-500">ผู้ดูแลระบบคะแนน</h1>
+        <p class="text-slate-400 text-sm mb-6">กรุณาใส่รหัสผ่านเพื่อเข้าจัดการคะแนน</p>
+        <input type="password" id="admin-pass" class="w-full bg-slate-800 border border-slate-700 p-4 rounded-2xl mb-4 text-center text-xl tracking-widest outline-none focus:ring-2 ring-blue-500" placeholder="รหัสผ่าน">
+        <button id="loginBtn" class="w-full bg-blue-600 hover:bg-blue-500 py-4 rounded-2xl font-bold transition-all">เข้าสู่ระบบ</button>
     </div>
 
-    <div id="main" class="hidden max-w-lg mx-auto bg-slate-800 p-8 rounded-3xl border border-slate-700">
-        <h1 class="text-2xl font-bold mb-6 text-blue-400">อัปเดตคะแนนเรียลไทม์</h1>
-        <div class="space-y-4">
-            <input type="number" id="id" class="w-full bg-slate-950 p-4 rounded-xl border border-slate-700" placeholder="เขตเลือกตั้งที่ (ID ใน GeoJSON)">
-            <input type="text" id="party" class="w-full bg-slate-950 p-4 rounded-xl border border-slate-700" placeholder="ชื่อพรรค">
-            <div class="flex gap-2">
-                <input type="color" id="cp" class="h-14 w-20 bg-slate-950 rounded-xl border border-slate-700 p-1">
-                <input type="text" id="hex" class="flex-1 bg-slate-950 p-4 rounded-xl border border-slate-700" placeholder="#สีพรรค">
-            </div>
-            <input type="number" id="sc" class="w-full bg-slate-950 p-4 rounded-xl border border-slate-700" placeholder="คะแนนสะสม">
-            <button id="save" class="w-full bg-blue-600 py-4 rounded-2xl font-bold text-lg">อัปเดตหน้า Dashboard</button>
+    <div id="admin-panel" class="hidden max-w-lg mx-auto bg-slate-900 p-8 rounded-3xl border border-slate-800 shadow-2xl">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold text-blue-400">อัปเดตคะแนนสด</h1>
+            <button onclick="location.reload()" class="text-xs text-slate-500 hover:text-white">ออกจากระบบ</button>
         </div>
+
+        <div class="space-y-5">
+            <label class="block text-xs font-semibold text-slate-500 uppercase">พรรคที่นำในเขตนี้</label>
+            <div class="grid grid-cols-2 gap-2">
+                <button type="button" onclick="quickSelect('เพื่อไทย', '#df0000')" class="bg-red-900/20 text-red-500 border border-red-900/30 py-2 rounded-xl text-xs hover:bg-red-600 hover:text-white transition">เพื่อไทย</button>
+                <button type="button" onclick="quickSelect('ก้าวไกล', '#ff6600')" class="bg-orange-900/20 text-orange-500 border border-orange-900/30 py-2 rounded-xl text-xs hover:bg-orange-600 hover:text-white transition">ก้าวไกล</button>
+                <button type="button" onclick="quickSelect('ภูมิใจไทย', '#000080')" class="bg-blue-900/20 text-blue-500 border border-blue-900/30 py-2 rounded-xl text-xs hover:bg-blue-700 hover:text-white transition">ภูมิใจไทย</button>
+                <button type="button" onclick="quickSelect('รทสช.', '#24306e')" class="bg-indigo-900/20 text-indigo-400 border border-indigo-900/30 py-2 rounded-xl text-xs hover:bg-indigo-600 hover:text-white transition">รทสช.</button>
+            </div>
+
+            <div class="pt-4 border-t border-slate-800 space-y-4">
+                <div>
+                    <label class="block text-xs text-slate-500 mb-1">เขตเลือกตั้ง (ID ใน GeoJSON)</label>
+                    <input type="number" id="dist-id" class="w-full bg-slate-800 p-4 rounded-xl border border-slate-700 outline-none focus:ring-1 ring-blue-500" placeholder="เช่น 0, 3, 10">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-500 mb-1">ชื่อพรรค</label>
+                    <input type="text" id="party-name" class="w-full bg-slate-800 p-4 rounded-xl border border-slate-700 outline-none focus:ring-1 ring-blue-500" placeholder="ระบุชื่อพรรค">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-500 mb-1">สีประจำพรรค (Hex Code)</label>
+                    <div class="flex gap-2">
+                        <input type="color" id="color-picker" class="h-14 w-20 bg-slate-800 rounded-xl border border-slate-700 p-1">
+                        <input type="text" id="color-hex" class="flex-1 bg-slate-800 p-4 rounded-xl border border-slate-700 outline-none focus:ring-1 ring-blue-500" placeholder="#FF0000">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-500 mb-1">คะแนนรวมสะสม</label>
+                    <input type="number" id="score-val" class="w-full bg-slate-800 p-4 rounded-xl border border-slate-700 outline-none focus:ring-1 ring-blue-500" placeholder="0">
+                </div>
+
+                <button id="saveData" class="w-full bg-blue-600 hover:bg-blue-500 py-4 rounded-2xl font-bold text-lg shadow-lg shadow-blue-900/20 transition-all active:scale-95">
+                    อัปเดตข้อมูลขึ้นแผนที่
+                </button>
+            </div>
+        </div>
+        <p class="text-center text-[10px] text-slate-600 mt-6">ระบบอัปเดตคะแนนเรียลไทม์ v1.0</p>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
         import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
-        const firebaseConfig = { /* ใช้ตัวเดียวกัน */ };
+        // *** ตรวจสอบ Config ของคุณให้ถูกต้อง ***
+        const firebaseConfig = {
+            apiKey: "AIzaSyC1ezNueFBjkbToDo-kGo39j49xy7lONfw",
+            authDomain: "studio-a33fe.firebaseapp.com",
+            projectId: "studio-a33fe",
+            databaseURL: "https://studio-a33fe-default-rtdb.asia-southeast1.firebasedatabase.app/",
+            appId: "1:753539109404:web:a5e3c94d8dab8bbde645d9"
+        };
+
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        window.check = () => {
-            if(document.getElementById('pass').value === "987654321") {
-                document.getElementById('login').classList.add('hidden');
-                document.getElementById('main').classList.remove('hidden');
-            } else { alert("รหัสผ่านผิด!"); }
+        // 1. ระบบ Login
+        document.getElementById('loginBtn').onclick = function() {
+            const pass = document.getElementById('admin-pass').value;
+            if (pass === "987654321") {
+                document.getElementById('login-section').classList.add('hidden');
+                document.getElementById('admin-panel').classList.remove('hidden');
+            } else {
+                alert("รหัสผ่านไม่ถูกต้อง!");
+            }
         };
 
-        document.getElementById('cp').oninput = function() { document.getElementById('hex').value = this.value; };
+        // 2. ฟังก์ชันช่วยเลือกพรรค
+        window.quickSelect = function(name, color) {
+            document.getElementById('party-name').value = name;
+            document.getElementById('color-hex').value = color;
+            document.getElementById('color-picker').value = color;
+        };
 
-        document.getElementById('save').onclick = async () => {
-            const id = document.getElementById('id').value;
-            await set(ref(db, `district_live/${id}`), {
-                party: document.getElementById('party').value,
-                color: document.getElementById('hex').value,
-                score: parseInt(document.getElementById('sc').value) || 0
-            });
-            alert("อัปเดตข้อมูลสำเร็จ!");
+        // ผูกตัวเลือกสีเข้ากับช่อง Text
+        document.getElementById('color-picker').oninput = function() {
+            document.getElementById('color-hex').value = this.value;
+        };
+
+        // 3. บันทึกข้อมูล
+        document.getElementById('saveData').onclick = async function() {
+            const id = document.getElementById('dist-id').value;
+            const party = document.getElementById('party-name').value;
+            const color = document.getElementById('color-hex').value;
+            const score = document.getElementById('score-val').value;
+
+            if(!id || !party || !color) {
+                alert("กรุณากรอกข้อมูลให้ครบถ้วน");
+                return;
+            }
+
+            this.innerText = "กำลังบันทึก...";
+            this.disabled = true;
+
+            try {
+                await set(ref(db, `district_live/${id}`), {
+                    party: party,
+                    color: color,
+                    score: parseInt(score) || 0,
+                    updatedAt: Date.now()
+                });
+                alert("อัปเดตข้อมูลเขต " + id + " สำเร็จ!");
+            } catch (error) {
+                alert("เกิดข้อผิดพลาด: " + error.message);
+            }
+            
+            this.innerText = "อัปเดตข้อมูลขึ้นแผนที่";
+            this.disabled = false;
         };
     </script>
 </body>
