@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - คะแนนเลือกตั้ง</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-white p-6">
+    <div id="login" class="max-w-sm mx-auto mt-20 text-center bg-slate-800 p-8 rounded-3xl border border-slate-700">
+        <h1 class="text-xl font-bold mb-4">Admin Login</h1>
+        <input type="password" id="pass" class="w-full bg-slate-950 p-3 rounded-xl mb-4 text-center border border-slate-700" placeholder="รหัสผ่าน">
+        <button onclick="check()" class="w-full bg-blue-600 py-3 rounded-xl">เข้าสู่ระบบ</button>
+    </div>
+
+    <div id="main" class="hidden max-w-lg mx-auto bg-slate-800 p-8 rounded-3xl border border-slate-700">
+        <h1 class="text-2xl font-bold mb-6 text-blue-400">อัปเดตคะแนนเรียลไทม์</h1>
+        <div class="space-y-4">
+            <input type="number" id="id" class="w-full bg-slate-950 p-4 rounded-xl border border-slate-700" placeholder="เขตเลือกตั้งที่ (ID ใน GeoJSON)">
+            <input type="text" id="party" class="w-full bg-slate-950 p-4 rounded-xl border border-slate-700" placeholder="ชื่อพรรค">
+            <div class="flex gap-2">
+                <input type="color" id="cp" class="h-14 w-20 bg-slate-950 rounded-xl border border-slate-700 p-1">
+                <input type="text" id="hex" class="flex-1 bg-slate-950 p-4 rounded-xl border border-slate-700" placeholder="#สีพรรค">
+            </div>
+            <input type="number" id="sc" class="w-full bg-slate-950 p-4 rounded-xl border border-slate-700" placeholder="คะแนนสะสม">
+            <button id="save" class="w-full bg-blue-600 py-4 rounded-2xl font-bold text-lg">อัปเดตหน้า Dashboard</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+        import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+        const firebaseConfig = { /* ใช้ตัวเดียวกัน */ };
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        window.check = () => {
+            if(document.getElementById('pass').value === "987654321") {
+                document.getElementById('login').classList.add('hidden');
+                document.getElementById('main').classList.remove('hidden');
+            } else { alert("รหัสผ่านผิด!"); }
+        };
+
+        document.getElementById('cp').oninput = function() { document.getElementById('hex').value = this.value; };
+
+        document.getElementById('save').onclick = async () => {
+            const id = document.getElementById('id').value;
+            await set(ref(db, `district_live/${id}`), {
+                party: document.getElementById('party').value,
+                color: document.getElementById('hex').value,
+                score: parseInt(document.getElementById('sc').value) || 0
+            });
+            alert("อัปเดตข้อมูลสำเร็จ!");
+        };
+    </script>
+</body>
+</html>
